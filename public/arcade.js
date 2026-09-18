@@ -1,5 +1,5 @@
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
-let current=document.body.dataset.game||'hangman', rounds={}, access={hangman:5,blackjack:5,daily:5,unlimited:false}, busy=false, ready=false, recovery=null, pendingResult=null, dailyCalendar=null, resetTimer=null;
+let current=document.body.dataset.game||'hangman', rounds={}, access={hangman:5,blackjack:5,daily:5,tictactoe:5,fade:5,unlimited:false}, busy=false, ready=false, recovery=null, pendingResult=null, dailyCalendar=null, resetTimer=null;
 const suits={S:'♠',H:'♥',D:'♦',C:'♣'};
 async function api(path,data){
  const response=await fetch(path,{method:data?'POST':'GET',headers:{'Accept':'application/json','Content-Type':'application/json','X-CSRF-TOKEN':$('meta[name="csrf-token"]').content},body:data?JSON.stringify(data):undefined});
@@ -7,8 +7,8 @@ async function api(path,data){
  if(!response.ok){const error=Error(result.message||'Please try again.');error.status=response.status;throw error;}return result;
 }
 function showError(e,dialog=false){const el=$(dialog?'#dialog-error':'#error');el.textContent=e.status===419?'Your session expired. Reload the page to continue.':e.message;el.hidden=false;}
-function counters(){for(const g of ['hangman','blackjack','daily']) if($('#count-'+g)) $('#count-'+g).textContent=access.unlimited?'Unlimited play':access[g]+' free '+(access[g]===1?'play':'plays')+' left';$('#account-label').textContent=access.unlimited?'Your forever pass is active.':'Just you. No sign-up.';$$('[data-unlock]').forEach(b=>{if(access.unlimited)b.textContent='Your unlimited pass ↗';});}
-function select(game){current=game;$$('.game-pick[data-game]').forEach(b=>{const active=b.dataset.game===game;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',active);});$('#hangman-view').hidden=game!=='hangman';$('#hangman-settings').hidden=game!=='hangman';$('#blackjack-view').hidden=game!=='blackjack';$('#blackjack-settings').hidden=game!=='blackjack';$('#daily-view').hidden=game!=='daily';$('#daily-settings').hidden=game!=='daily';$('#game-title').textContent={hangman:'Hangman',blackjack:'Blackjack',daily:'Daily Word'}[game];$('#game-category').textContent={hangman:'THE WORD CLASSIC',blackjack:'THE TABLE CLASSIC',daily:'ONE WORD. EVERY DAY.'}[game];$('#error').hidden=true;render();}
+function counters(){for(const g of ['hangman','blackjack','daily','tictactoe','fade']) if($('#count-'+g)) $('#count-'+g).textContent=access.unlimited?'Unlimited play':access[g]+' free '+(access[g]===1?'play':'plays')+' left';$('#account-label').textContent=access.unlimited?'Your forever pass is active.':'Just you. No sign-up.';$$('[data-unlock]').forEach(b=>{if(access.unlimited)b.textContent='Your unlimited pass ↗';});}
+function select(game){current=game;$$('.game-pick[data-game]').forEach(b=>{const active=b.dataset.game===game;b.classList.toggle('selected',active);b.setAttribute('aria-pressed',active);});$('#hangman-view').hidden=game!=='hangman';$('#hangman-settings').hidden=game!=='hangman';$('#blackjack-view').hidden=game!=='blackjack';$('#blackjack-settings').hidden=game!=='blackjack';$('#daily-view').hidden=game!=='daily';$('#daily-settings').hidden=game!=='daily';$('#tictactoe-view').hidden=!['tictactoe','fade'].includes(game);$('#fade-settings').hidden=game!=='fade';$('#tictactoe-settings').hidden=game!=='tictactoe';$('#game-title').textContent={hangman:'Hangman',blackjack:'Blackjack',daily:'Daily Word',tictactoe:'Tic Tac Toe',fade:'Fade Tac Toe'}[game];$('#game-category').textContent={hangman:'THE WORD CLASSIC',blackjack:'THE TABLE CLASSIC',daily:'ONE WORD. EVERY DAY.',tictactoe:'THREE IN A ROW',fade:'A FULL BOARD IS A NEW BEGINNING'}[game];$('#error').hidden=true;render();}
 for(const row of ['QWERTYUIOP','ASDFGHJKL','ZXCVBNM']){const wrap=document.createElement('div');wrap.className='key-row';for(const l of row){const b=document.createElement('button');b.className='key';b.textContent=l;b.dataset.letter=l;b.setAttribute('aria-label','Guess '+l);b.addEventListener('click',()=>move('guess',l));wrap.append(b);}$('#keyboard').append(wrap);}
 function render(){
  counters();const s=rounds[current]?.state;$('#round-badge').textContent=!ready?'Connecting…':s?.status==='playing'?'Round in progress':s?'Round complete':'Ready when you are';
@@ -20,6 +20,7 @@ function render(){
  $('#hangman-result').textContent=s?.status==='won'?'Nicely done. You found the word!':s?.status==='lost'?'That one got away. The word was '+s.letters.join('')+'.':'';
  $('#hangman-start').disabled=!ready||busy||playing;$('#hangman-start').textContent=playing?'Round in progress':!access.unlimited&&access.hangman===0?'Unlock to keep playing':s?'Play another word ↗':"Let’s play ↗";
  $('#hangman-help').textContent=playing?'Tap a letter or use your keyboard.':'Your keyboard works here, too.';
+ }else if(['tictactoe','fade'].includes(current)){renderTicTacToe(s);
  }else if(current==='daily'){renderDaily(s);
  }else{
  if(s){$('#dealer-cards').replaceChildren(...s.dealer.map(card));$('#dealer-total').textContent=s.dealer_total+(s.status==='playing'?' + ?':'');$('#player-hands').replaceChildren(...s.hands.map((h,i)=>{const wrap=document.createElement('div');wrap.className='player-hand'+(s.status==='playing'&&s.active===i?' active':'');const hand=document.createElement('div');hand.className='hand';hand.append(...h.cards.map(card));const label=document.createElement('div');label.className='table-label';label.textContent=(s.hands.length>1?'HAND '+(i+1):'YOU')+' · '+h.total+' · '+h.bet+' chips'+(h.result?' · '+h.result:'');wrap.append(hand,label);return wrap;}));}
@@ -103,4 +104,36 @@ $('#daily-form').onsubmit=async e=>{
  catch(error){showError(error);if(error.status===409)await refresh().catch(showError);}
  finally{busy=false;render();if(!$('#daily-input').disabled)$('#daily-input').focus();}
 };
+function renderTicTacToe(s){
+ const playing=s?.status==='playing';
+ $('#ttt-status').textContent=busy?'Making your move…':!s?'You go first. Ready to play?':playing?'Your turn — choose an empty square.'+(current==='fade'&&s.cycles?' · '+s.cycles+' fade cycle'+(s.cycles===1?'':'s'):''):s.status==='won'?'You win! Three in a row.':s.status==='lost'?'Computer wins. Another round?':'It’s a draw. Well played!';
+ $('#ttt-board').dataset.status=s?.status||'ready';
+ $$('#ttt-board button').forEach((b,i)=>{const mark=s?.board[i];b.textContent=mark||'';b.dataset.mark=mark||'';b.classList.toggle('winning',!!s?.winning_line.includes(i));b.disabled=!ready||busy||!playing||!!mark;b.setAttribute('aria-label','Row '+(Math.floor(i/3)+1)+', column '+(i%3+1)+': '+(mark||'empty'));});
+ $('#ttt-start').disabled=!ready||busy||playing;
+ $('#ttt-start').textContent=playing?'Game in progress':!access.unlimited&&access[current]===0?'Unlock unlimited · $1':s?'Play again ↗':'Let’s play ↗';
+ $('#ttt-allowance').textContent=access.unlimited?'Unlimited play':access[current]+' free games left';
+}
+for(let i=0;i<9;i++){const b=document.createElement('button');b.type='button';b.className='ttt-cell';b.onclick=()=>placeMark(i);$('#ttt-board').append(b);}
+$('#ttt-start').onclick=start;
+async function animateFade(events){
+ const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+ for(const event of events||[]){
+  const buttons=$$('#ttt-board button');buttons.forEach((b,i)=>{b.classList.remove('fading');b.textContent=event.board[i]||'';b.dataset.mark=event.board[i]||'';b.disabled=true;});
+  if(event.type==='fade'){
+   $('#ttt-status').textContent='Board full — the oldest two Xs and two Os fade away…';
+   await new Promise(resolve=>setTimeout(resolve,reduced?100:350));
+   event.removed.forEach(i=>buttons[i].classList.add('fading'));
+   await new Promise(resolve=>setTimeout(resolve,reduced?100:900));
+   event.removed.forEach(i=>{buttons[i].textContent='';buttons[i].dataset.mark='';buttons[i].classList.remove('fading');});
+   await new Promise(resolve=>setTimeout(resolve,reduced?0:250));
+  }else await new Promise(resolve=>setTimeout(resolve,reduced?0:200));
+ }
+}
+async function placeMark(cell){
+ if(busy||!ready||rounds[current]?.state.status!=='playing')return;
+ const round=rounds[current];busy=true;render();$('#error').hidden=true;
+ try{const result=await api('/api/rounds/'+round.id,{action:'place',cell,revision:round.state.revision});if(current==='fade')await animateFade(result.state.events);rounds[current]=result;access=result.access;}
+ catch(error){showError(error);await refresh().catch(()=>{});}
+ finally{busy=false;render();}
+}
 select(current);refresh().then(()=>{const payment=new URLSearchParams(location.search).get('payment');if(payment==='success'&&access.unlimited)openDialog('paid');else if(payment==='cancelled'){showError(Error('Checkout cancelled. You have not been charged.'));}else if(payment==='pending'){showError(Error('Your payment is still being confirmed. Refresh shortly to check your pass.'));}if(payment)history.replaceState({},'',location.pathname);}).catch(showError);

@@ -71,3 +71,31 @@ php artisan optimize
 ```
 
 Validation: 26 tests pass, including midnight rollover, resuming a finished daily game, per-game quotas, invalid word rejection, six-guess loss, and repeated-letter scoring. JavaScript syntax checks and browser navigation/guess submission were also checked.
+
+## Tic Tac Toe
+
+Play at `/games/tictactoe`, linked from the four-card homepage. You play X and go first against the computer (O). The computer takes winning moves, blocks immediate threats, and otherwise prefers the center and corners; it is deliberately beatable. Wins, losses, draws, and winning lines are shown on the board. In-progress games resume after refresh. State and moves are validated on the server, including occupied cells and stale turns.
+
+Five started games are free independently of the other games; existing $1 passes include unlimited Tic Tac Toe. Run `php artisan migrate --force` and `php artisan optimize` after deploying this update. No additional dependencies, cron, or queue are needed. All 31 tests pass; starting a game and the computer reply were checked in the browser.
+
+## Fade Tac Toe
+
+A separate game at `/games/fade`. You play X against the computer (O). Wins end immediately, including a win on the ninth square. When the board fills without a winner, the oldest two surviving X marks and oldest two surviving O marks fade away automatically. Other marks remain; chronological order and alternating turns continue across every cycle. The computer automatically plays after a player-triggered fade. Cycles do not consume extra free plays. Refresh resumes the settled board without replaying an old animation. Reduced-motion preferences shorten the transition. There is no cycle limit; play ends only on a win.
+
+Five independent free games; included in existing unlimited passes. Deploy the new `fade_plays` migration with `php artisan migrate --force` then `php artisan optimize`. All 35 tests pass, including oldest-mark ordering across two cycles, ninth-square wins, automatic computer continuation, resume, quotas, and stale-turn rejection. The first full-board cycle was verified through browser play.
+
+## Guest multiplayer
+
+Visit `/multiplayer` or choose **Play with friends** from a game. Every browser receives a persistent, unique funny guest name. Copy the full name and invite it from a room; the recipient accepts or declines in the Invitations panel on any page. Alternatively share the room link: anyone holding it can join an available seat. Names and online presence are visible to other visitors; names are not authentication credentials. Invitations expire after ten minutes and repeat invitations are throttled.
+
+Tic Tac Toe and Fade Tac Toe support two human players. Blackjack supports two to five players against one computer dealer. Each table round uses a fresh shuffled six-deck shoe shared by all players. The dealer reveals only after all hands finish, with the same split/double/payout rules as solo. Hangman and Daily Word remain solo; all existing computer modes remain available.
+
+Everyone must choose Ready, then the host starts. Joining, invitations, refreshes, and Fade cycles cost no plays. A started round charges each participant once against the existing five-started-round allowance **per game and browser identity**, shared between solo and multiplayer. Existing $1 passes cover multiplayer. The allowance does not reset on a page refresh or a new room.
+
+Room state lives on the server, with transactional room locks, player quota locks, per-hand/board revisions, and round identifiers rejecting replayed moves. Only members receive gameplay state; dealer hole cards and shoe order stay hidden. Each guest can occupy one room. A 120-second idle turn forfeits a board game or automatically stands a Blackjack hand. Refresh reconnects; waiting/finished-room seats expire after five minutes away, and host ownership transfers to a remaining player. Timeouts are evaluated by incoming requests.
+
+The browser polls room state every two seconds (less frequently in background tabs), and invitations every six seconds. No WebSocket service, cron, queue, Node process, or new Composer package is required. This suits a modest cPanel portal; size hosting capacity for polling traffic before a large launch. Rooms and invitations are retained in the database; add a retention policy when needed.
+
+For an existing deployment, upload the updated source and public assets, preserve `.env` and data, then run `php artisan migrate --force` and `php artisan optimize`. Test with separate browsers/devices: two tabs in one browser intentionally share one guest identity.
+
+Current validation: 43 automated tests pass (3,394 assertions), including multi-guest invitations, consent, quotas, turn ownership, replay rejection, Fade clearing, five-seat capacity, shared-card conservation, dealer masking, idle timeouts, and host transfer. Multiplayer lobby creation and leaving a room were also verified in the browser.

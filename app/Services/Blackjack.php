@@ -30,7 +30,7 @@ class Blackjack {
   if(count($h['cards'])===2 && count($s['hands'])<4 && self::value($h['cards'][0])===self::value($h['cards'][1])) $actions[]='split';
   return $actions;
  }
- public static function act(array $s,string $action,array &$shoe): array {
+ public static function act(array $s,string $action,array &$shoe,bool $deferDealer=false): array {
   if(!in_array($action,self::actions($s))) throw ValidationException::withMessages(['action'=>'That move is not available.']);
   $i=$s['active']; $h=&$s['hands'][$i];
   if($action==='hit' || $action==='double') {
@@ -46,6 +46,7 @@ class Blackjack {
   }
   $next=null; foreach($s['hands'] as $idx=>$hand) if(!$hand['done']) { $next=$idx; break; }
   if($next!==null) { $s['active']=$next; return $s; }
+  if($deferDealer){$s['status']='waiting';return $s;}
   $live=array_filter($s['hands'],fn($hand)=>self::total($hand['cards'])<=21);
   if($live) while(self::total($s['dealer'])<17) $s['dealer'][]=array_pop($shoe);
   return self::settle($s);
@@ -67,7 +68,7 @@ class Blackjack {
  public static function view(array $s): array {
   $s['actions']=self::actions($s);
   foreach($s['hands'] as &$h) $h['total']=self::total($h['cards']); unset($h);
-  if($s['status']==='playing') { $s['dealer']=[$s['dealer'][0],null]; $s['dealer_total']=self::total([$s['dealer'][0]]); }
+  if(in_array($s['status'],['playing','waiting'])) { $s['dealer']=[$s['dealer'][0],null]; $s['dealer_total']=self::total([$s['dealer'][0]]); }
   else $s['dealer_total']=self::total($s['dealer']);
   return $s;
  }

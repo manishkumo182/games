@@ -91,3 +91,17 @@ No queue worker or cron is necessary for normal gameplay/fulfillment. Finished r
 This release adds `/games/hangman`, `/games/blackjack`, and `/games/daily`, a homepage of cards, and a new `daily_plays`/`puzzle_date` migration. Upload the updated source and static files, keep your production `.env` and database, then run `php artisan migrate --force` and `php artisan optimize`. Existing guests, purchases, and saved classic games remain valid.
 
 Daily Word changes at midnight UTC using the request date. Do not configure cron or queue workers for it. There is one puzzle per day; the $1 pass includes future daily puzzles as well as unlimited classic rounds. Five daily puzzles are free. The browser shows the UTC reset schedule.
+
+## Tic Tac Toe update
+
+Deploy the updated application and static assets, preserving `.env` and the database. Run `php artisan migrate --force` (adds `tictactoe_plays`) and `php artisan optimize`. The new game is at `/games/tictactoe`; existing purchases automatically include it.
+
+## Fade Tac Toe update
+
+Upload the updated files, preserve `.env` and your database, and run `php artisan migrate --force` and `php artisan optimize`. This adds the `fade_plays` counter and `/games/fade`. No additional runtime dependencies, scheduled jobs, or workers are required. Existing passes include the new game.
+
+## Multiplayer update
+
+Deploy the new multiplayer migration and all updated source/public files, then run `php artisan migrate --force` and `php artisan optimize`. Keep the existing APP_KEY and database. No worker or scheduled task is needed. Allow same-origin GET/POST requests to `/api/social`, `/api/rooms/*`, and `/api/invitations/*`; do not cache these responses in a CDN. Use InnoDB so room and quota row locks work across PHP requests.
+
+Smoke test using two separate browsers/devices: copy a guest name, send and accept an invitation, mark both Ready, and start as host. Check turn updates, refresh reconnection, a completed round, and shared solo/multiplayer quotas. For Blackjack, verify all players see the same dealer after the last hand stands. Links from localhost only work on that computer; deployed links use the site’s HTTPS domain.

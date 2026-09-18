@@ -7,7 +7,7 @@ async function api(path,data){
  if(!response.ok){const error=Error(result.message||'Please try again.');error.status=response.status;throw error;}return result;
 }
 function showError(e,dialog=false){const el=$(dialog?'#dialog-error':'#error');el.textContent=e.status===419?'Your session expired. Reload the page to continue.':e.message;el.hidden=false;}
-function counters(){for(const g of ['hangman','blackjack','daily']) $('#count-'+g).textContent=access.unlimited?'Unlimited play':access[g]+' free '+(access[g]===1?'play':'plays')+' left';$('#account-label').textContent=access.unlimited?'Your forever pass is active.':'Just you. No sign-up.';$$('[data-unlock]').forEach(b=>{if(access.unlimited)b.textContent='Your unlimited pass ↗';});}
+function counters(){for(const g of ['hangman','blackjack','daily','tictactoe','fade']) if($('#count-'+g)) $('#count-'+g).textContent=access.unlimited?'Unlimited play':access[g]+' free '+(access[g]===1?'play':'plays')+' left';$('#account-label').textContent=access.unlimited?'Your forever pass is active.':'Just you. No sign-up.';$$('[data-unlock]').forEach(b=>{if(access.unlimited)b.textContent='Your unlimited pass ↗';});}
 function openDialog(view){$('#purchase-content').hidden=view!=='purchase';$('#paid-content').hidden=view!=='paid';$('#restore-content').hidden=view!=='restore';$('#dialog-error').hidden=true;if(view==='paid')$('#recovery-code').textContent=recovery||'Your code is loading. Please close and reopen this window.';if(!$('#access-dialog').open)$('#access-dialog').showModal();}
 
 function render(){counters();}
