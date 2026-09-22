@@ -105,3 +105,5 @@ Upload the updated files, preserve `.env` and your database, and run `php artisa
 Deploy the new multiplayer migration and all updated source/public files, then run `php artisan migrate --force` and `php artisan optimize`. Keep the existing APP_KEY and database. No worker or scheduled task is needed. Allow same-origin GET/POST requests to `/api/social`, `/api/rooms/*`, and `/api/invitations/*`; do not cache these responses in a CDN. Use InnoDB so room and quota row locks work across PHP requests.
 
 Smoke test using two separate browsers/devices: copy a guest name, send and accept an invitation, mark both Ready, and start as host. Check turn updates, refresh reconnection, a completed round, and shared solo/multiplayer quotas. For Blackjack, verify all players see the same dealer after the last hand stands. Links from localhost only work on that computer; deployed links use the site’s HTTPS domain.
+
+Dots and Boxes adds player quotas and a saved room board size. Apply both 2026-09-22 migrations with `php artisan migrate --force`, then `php artisan optimize`. Upload the new dots-board.js and dots.js along with the updated shared assets and views.

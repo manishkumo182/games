@@ -13,7 +13,7 @@ Route::middleware(IdentifyPlayer::class)->group(function() {
  foreach(['join','ready','start','move','leave','invite'] as $action) Route::post('/api/rooms/{code}/'.$action,[MultiplayerController::class,$action])->middleware($action==='invite'?'throttle:room-invite':'throttle:room-write')->block(10,10);
  Route::post('/api/invitations/{id}',[MultiplayerController::class,'respond'])->middleware('throttle:room-write')->block(10,10);
 
- Route::get('/games/{game}',function(string $game){abort_unless(in_array($game,['hangman','blackjack','daily','tictactoe','fade']),404);return view('arcade',['game'=>$game]);});
+ Route::get('/games/{game}',function(string $game){abort_unless(in_array($game,['hangman','blackjack','daily','tictactoe','fade','dots']),404);return view($game==='dots'?'dots':'arcade',['game'=>$game]);});
  Route::get('/api/status',[GameController::class,'status']);
  Route::post('/api/games/{game}',[GameController::class,'start'])->middleware('throttle:30,1')->block(10,10);
  Route::post('/api/rounds/{id}',[GameController::class,'move'])->middleware('throttle:120,1')->block(10,10);

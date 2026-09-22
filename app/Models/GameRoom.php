@@ -6,5 +6,5 @@ class GameRoom extends Model {
  use HasUuids;
  protected $table='game_rooms';
  protected $guarded=[];
- protected function casts(): array {return ['state'=>'array','version'=>'integer'];}
+ protected function casts(): array {return ['state'=>'array','version'=>'integer','dots_size'=>'integer'];}
 }

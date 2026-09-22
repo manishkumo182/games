@@ -99,3 +99,9 @@ The browser polls room state every two seconds (less frequently in background ta
 For an existing deployment, upload the updated source and public assets, preserve `.env` and data, then run `php artisan migrate --force` and `php artisan optimize`. Test with separate browsers/devices: two tabs in one browser intentionally share one guest identity.
 
 Current validation: 43 automated tests pass (3,394 assertions), including multi-guest invitations, consent, quotas, turn ownership, replay rejection, Fade clearing, five-seat capacity, shared-card conservation, dealer masking, idle timeouts, and host transfer. Multiplayer lobby creation and leaving a room were also verified in the browser.
+
+## Dots and Boxes
+
+Play at `/games/dots` against the computer, or select Dots and Boxes in the multiplayer lobby. Choose a square board from 3×3 (9 boxes) through 8×8 (64 boxes). Solo size is chosen before a new round; existing rounds resume their saved size. Multiplayer hosts choose the size at room creation and it stays fixed for rematches. Complete the fourth side to claim a box and play again; a single line can claim two boxes. Most boxes wins, equal scores draw. Large boards use initials and horizontal scrolling on narrow screens.
+
+The computer takes available boxes and otherwise avoids giving away a box where possible. All sizes and extra turns consume one started play. Five free Dots and Boxes rounds share a counter across solo/multiplayer and are included in the existing $1 pass. Run `php artisan migrate --force` and `php artisan optimize` after uploading the update. No cron or queue is required. The full suite now has 49 passing tests, including all six sizes, ties, extra turns, computer continuation, size validation, saved size, and multiplayer settings.

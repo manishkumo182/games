@@ -19,8 +19,8 @@ class MultiplayerController extends Controller {
   return ['me'=>['id'=>$p->id,'name'=>$p->handle],'room'=>$room?['code'=>$room->code,'game'=>$room->game]:null,'online'=>Player::where('id','!=',$p->id)->where('last_seen_at','>',now()->subSeconds(45))->whereNotNull('handle')->orderByDesc('last_seen_at')->limit(30)->pluck('handle'),'invitations'=>$invites];
  }
  public function create(Request $r) {
-  $d=$r->validate(['game'=>['required',Rule::in(M::GAMES)]]);$p=$this->player($r);
-  return DB::transaction(function()use($p,$d){Player::whereKey($p->id)->lockForUpdate()->firstOrFail();abort_if(RoomSeat::where('player_id',$p->id)->exists(),409,'You already have a room. Return to it or leave it first.');$room=GameRoom::create(['code'=>Str::lower(Str::random(24)),'game'=>$d['game'],'host_id'=>$p->id,'status'=>'lobby','version'=>0]);M::join($room,$p);return M::view($room,$p);},3);
+  $d=$r->validate(['size'=>'sometimes|integer|between:3,8','game'=>['required',Rule::in(M::GAMES)]]);$p=$this->player($r);
+  return DB::transaction(function()use($p,$d){Player::whereKey($p->id)->lockForUpdate()->firstOrFail();abort_if(RoomSeat::where('player_id',$p->id)->exists(),409,'You already have a room. Return to it or leave it first.');$room=GameRoom::create(['code'=>Str::lower(Str::random(24)),'game'=>$d['game'],'host_id'=>$p->id,'status'=>'lobby','version'=>0,'dots_size'=>(int)($d['size']??3)]);M::join($room,$p);return M::view($room,$p);},3);
  }
  public function show(Request $r,string $code) {
   return DB::transaction(function()use($r,$code){$room=$this->locked($code);$p=$this->player($r);RoomSeat::where('room_id',$room->id)->where('player_id',$p->id)->update(['seen_at'=>now()]);M::expire($room);return M::view($room,$p);},3);
@@ -31,7 +31,7 @@ class MultiplayerController extends Controller {
  }
  public function start(Request $r,string $code) {$d=$r->validate(['version'=>'required|integer|min:0']);return DB::transaction(function()use($r,$code,$d){$room=$this->locked($code);M::expire($room);$p=$this->player($r);M::seat($room,$p->id);abort_unless($room->host_id===$p->id,403,'Only the host can start the round.');M::start($room,$d['version']);return M::view($room,$p);},3);}
  public function move(Request $r,string $code) {
-  $d=$r->validate(['round'=>'required|integer|min:1','revision'=>'required|integer|min:0','action'=>['required',Rule::in(['place','hit','stand','double','split'])],'cell'=>'required_if:action,place|integer|between:0,8']);
+  $d=$r->validate(['round'=>'required|integer|min:1','revision'=>'required|integer|min:0','action'=>['required',Rule::in(['line','place','hit','stand','double','split'])],'edge'=>'required_if:action,line|integer|between:0,143','cell'=>'required_if:action,place|integer|between:0,8']);
   return DB::transaction(function()use($r,$code,$d){$room=$this->locked($code);M::expire($room);$p=$this->player($r);M::move($room,$p->id,$d);return M::view($room,$p);},3);
  }
  public function leave(Request $r,string $code) {return DB::transaction(function()use($r,$code){$room=$this->locked($code);M::leave($room,$this->player($r)->id);return ['left'=>true];},3);}

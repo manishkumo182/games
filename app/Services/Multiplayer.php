@@ -3,7 +3,7 @@ namespace App\Services;
 use App\Models\{GameRoom,RoomSeat,Player};
 use Illuminate\Support\Facades\DB;
 class Multiplayer {
- public const GAMES=['tictactoe','fade','blackjack'];
+ public const GAMES=['tictactoe','fade','dots','blackjack'];
  public static function seats(GameRoom $room) {return RoomSeat::where('room_id',$room->id)->orderBy('id')->get();}
  public static function capacity(GameRoom $room): int {return $room->game==='blackjack'?5:2;}
  public static function seat(GameRoom $room,string $id): RoomSeat {return RoomSeat::where('room_id',$room->id)->where('player_id',$id)->firstOrFail();}
@@ -31,7 +31,7 @@ class Multiplayer {
    foreach($ids as $id){$s['players'][$id]['dealer']=$s['dealer'];if(Blackjack::total($s['players'][$id]['hands'][0]['cards'])===21){$s['players'][$id]['hands'][0]['done']=true;$s['players'][$id]['status']='waiting';}}
    if(Blackjack::total($s['dealer'])===21)foreach($ids as $id){$s['players'][$id]['status']='waiting';$s['players'][$id]['hands'][0]['done']=true;}
   }else{
-   $s=array_merge($s,$room->game==='fade'?FadeTacToe::start():TicTacToe::start());$s['turn']=$ids[0];$s['deadline']=now()->timestamp+120;$s['resume_at']=0;
+   $s=array_merge($s,$room->game==='dots'?DotsAndBoxes::start($room->dots_size??3):($room->game==='fade'?FadeTacToe::start():TicTacToe::start()));$s['turn']=$ids[0];$s['deadline']=now()->timestamp+120;$s['resume_at']=0;
   }
   $room->status='playing';$room->state=$s;$room->version++;$room->save();
   RoomSeat::where('room_id',$room->id)->update(['ready'=>false]);
@@ -53,12 +53,17 @@ class Multiplayer {
   }else{
    abort_unless($s['turn']===$id&&$s['revision']===$data['revision'],409,'It is not your turn, or the board has changed.');
    abort_if(($s['resume_at']??0)>microtime(true),409,'The old marks are still fading.');
+   if($room->game==='dots'){
+    abort_unless($data['action']==='line'&&isset($data['edge']),422,'Choose a line.');
+    $s=DotsAndBoxes::place($s,$data['edge'],$id===$s['ids'][0]?'X':'O');
+   }else{
    abort_unless($data['action']==='place'&&isset($data['cell']),422,'Choose a square.');$cell=$data['cell'];
    abort_unless($cell>=0&&$cell<9&&$s['board'][$cell]===null,422,'Choose an empty square.');$mark=$id===$s['ids'][0]?'X':'O';
    if($room->game==='fade'){$s['events']=[];$s=FadeTacToe::place($s,$cell,$mark);$faded=count(array_filter($s['events'],fn($e)=>$e['type']==='fade'))>0;$s['resume_at']=$faded?microtime(true)+2:0;}
    else{$s['board'][$cell]=$mark;$s=array_merge($s,TicTacToe::outcome($s['board']));}
+   }
    $s['revision']++;
-   if($s['status']==='playing'){$s['turn']=$id===$s['ids'][0]?$s['ids'][1]:$s['ids'][0];$s['deadline']=now()->timestamp+120;}
+   if($s['status']==='playing'){$s['turn']=$room->game==='dots'?($s['next']==='X'?$s['ids'][0]:$s['ids'][1]):($id===$s['ids'][0]?$s['ids'][1]:$s['ids'][0]);$s['deadline']=now()->timestamp+120;}
    else{$room->status='finished';$s['winner']=$s['status']==='draw'?null:($s['status']==='won'?$s['ids'][0]:$s['ids'][1]);$s['turn']=null;}
   }
   $room->state=$s;$room->version++;$room->save();if($room->game==='blackjack')self::finishBlackjack($room);
@@ -90,7 +95,7 @@ class Multiplayer {
  }
  public static function view(GameRoom $room,Player $player): array {
   $seats=self::seats($room);$member=$seats->contains('player_id',$player->id);$names=Player::whereIn('id',$seats->pluck('player_id'))->pluck('handle','id');
-  $out=['code'=>$room->code,'game'=>$room->game,'status'=>$room->status,'version'=>$room->version,'host_id'=>$room->host_id,'member'=>$member,'capacity'=>self::capacity($room),'me'=>$player->id,'access'=>$player->fresh()->access(),'seats'=>$seats->map(fn($s)=>['id'=>$s->player_id,'name'=>$names[$s->player_id],'ready'=>$s->ready,'online'=>$s->seen_at->gt(now()->subSeconds(20))])->all(),'state'=>null,'server_now'=>microtime(true)];
+  $out=['size'=>$room->dots_size??3,'code'=>$room->code,'game'=>$room->game,'status'=>$room->status,'version'=>$room->version,'host_id'=>$room->host_id,'member'=>$member,'capacity'=>self::capacity($room),'me'=>$player->id,'access'=>$player->fresh()->access(),'seats'=>$seats->map(fn($s)=>['id'=>$s->player_id,'name'=>$names[$s->player_id],'ready'=>$s->ready,'online'=>$s->seen_at->gt(now()->subSeconds(20))])->all(),'state'=>null,'server_now'=>microtime(true)];
   if(!$member||!$room->state)return $out;
   $s=$room->state;unset($s['shoe']);
   if($room->game==='blackjack'){
